@@ -1,0 +1,13 @@
+{ 
+    "clusterObject":  {
+                     "clusterName":  "dev-cluster-1",
+                     "EVCMode":  "",
+                     "HAMode":  "",
+                     "DRSMode":  "",
+                     "DrsEnabled":  "",
+                     "DrsAutomationLevel":  "",
+                     "VMSwapfilePolicy":  "",
+                     "HAFailoverLevel":  "",
+                     "used":  ""
+                 }
+	}

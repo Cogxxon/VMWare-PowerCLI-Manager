@@ -1,0 +1,16 @@
+{ 
+    "clusterObject":  {
+                     "clusterName":  "",
+                     "EVCMode":  "",
+                     "DrsEnabled":  "",
+                     "DRSMode":  "",
+                     "DrsEnabled":  "",
+                     "DrsAutomationLevel":  "",
+                     "VMSwapfilePolicy":  "",
+                     "HAFailoverLevel":  "",
+					 "HARestartPriority": "",
+                     "used":  "",
+					 "updated":"",
+					 "servers_in_cluster":""
+                 }
+	}
