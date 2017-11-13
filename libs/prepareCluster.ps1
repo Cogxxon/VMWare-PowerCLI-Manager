@@ -1,4 +1,14 @@
-﻿function prepareCluster()
+﻿<#########################################
+o---|-Name: prepareCluster
+o---|-Description: Used to prepare a cluster for update, 
+                   checks if DRS, HA, EVC modes are turned on and disables
+                   them
+o---|-Version: 0.1b
+o---|-Dependancies: - vmware-cli-manager.ps1
+                    - write-segline.ps1
+                    - $global:config global object
+##########################################>
+function prepareCluster()
 {
        
         #-------------------------------------
@@ -71,11 +81,27 @@
     ###############
 
 
-        ################
+       ##################-PREPERATION STATUS-######################################\
+       # ----------------------------------------------------------------------------\
+       #### < partially > < prepared > < unprepared >
+       #### This property holds the settings for prepared status for a host/cluster
+       #### a host/cluster cannot migrate or update if this status is not set to prepared
+       #### The switch -prepareCluster & -prepareHost must be ran before 
+       #### any migration or update occurs.
+       #### ----------------------
+       #### SWITCHES THAT USE THIS
+       #### ----------------------
+       #### -updateCluster
+       #### -updateHosts
+       #### -updatehost
+       # ----------------------------------------------------------------------------/
+       ############################################################################/
+       ################
         $clusterObject = Get-Cluster -Name $global:config.vmhost_cluster_name
         if($clusterObject.EVCMode -eq $null -and $clusterObject.DrsEnabled -eq $false -and $clusterObject.HAEnabled -eq $false)
         {
             WRITE-SEGLINE -action -numlines 3 -firstline 'Setting global variable' -secondline '$global:config.prepared_status value' -thirdline 'prepared'
+            
             $global:config.prepared_status = 'prepared';
         }
         else
