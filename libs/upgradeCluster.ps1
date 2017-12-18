@@ -11,6 +11,8 @@ function upgradeCluster
         {
             ### ENABLE 
             ### DRS ON CLUSTER
+            ### To allow live migration if not enable the 
+            ### and EVCMode for CPU features Compatability
             if((Get-Cluster -Name $global:config.vmhost_cluster_name).DrsEnabled -eq $false)
             {
                 Get-Cluster -Name $global:config.vmhost_cluster_name | Set-Cluster -DrsEnabled $true -Confirm:$false -Verbose

@@ -1,10 +1,4 @@
-﻿<#################################################
-o---|-Name: VMWare-PowerCLI-Manager
-o---|-Auther: Garvey Snow
-o---|-Description: Script/Module controller for the associated libraries 
-o---|-Version: 0.2b
-#################################################>
-function vmwarecli
+﻿function vmarecli
 {
 <#=============================================================================#>
 
@@ -13,6 +7,7 @@ function vmwarecli
  ------------------------------------
  DESCRIPTION : Script to Automate Migration, Upgrades & Patches through VMWare 
                Update Manager Reports On Environment 
+               /\ Cluster /\ Single Hosts /\ vCenter Wide /\
  SOURCES For SCRIPT
  ------------------------------------
 #>
@@ -32,53 +27,60 @@ function vmwarecli
 
 param( 
              [switch][parameter(ValueFromPipeline=$true)]$reportOnly,
-              [switch][parameter(ValueFromPipeline=$true)]$connectVI,
-               [switch][parameter(ValueFromPipeline=$true)]$disconnectVI,
-                [switch][parameter(ValueFromPipeline=$true)]$linked,
-                 [switch][parameter(ValueFromPipeline=$true)]$viewInstances,
-                  [switch][parameter(ValueFromPipeline=$true)]$prepareCluster,
-                   [switch][parameter(ValueFromPipeline=$true)]$upgradeCluster,
-                    [switch][parameter(ValueFromPipeline=$true)]$findSuitableHost,
-                    [string[]]$injectedServer
+             [switch][parameter(ValueFromPipeline=$true)]$connectVI,
+             [switch][parameter(ValueFromPipeline=$true)]$disconnectVI,
+             [switch][parameter(ValueFromPipeline=$true)]$linked,
+             [switch][parameter(ValueFromPipeline=$true)]$viewInstances,
+             [switch][parameter(ValueFromPipeline=$true)]$prepareCluster,
+             [switch][parameter(ValueFromPipeline=$true)]$upgradeCluster,
+             [switch][parameter(ValueFromPipeline=$true)]$retrieveSuitableHost
 )
 
 #################-INITIALIZE OBJECTS-############################\
-# ---------------------------------------------------------------\
-Clear-Host;
-Write-Host -ForegroundColor Yellow 'Checking for Object $global:config'
-if($global:config)
-{
-    Write-Host -ForegroundColor Green 'Object Found'
-}
-else
-{
-    $global:config = New-Object -TypeName psobject;
-     $global:config | Add-Member -MemberType NoteProperty -Name running_mode -Value '';
-      $global:config | Add-Member -MemberType NoteProperty -Name baseline_name -Value '';
-       $global:config | Add-Member -MemberType NoteProperty -Name vmhost_cluster_name -Value ''; 
-        $global:config | Add-Member -MemberType NoteProperty -Name module_cache -Value '';
-         $global:config | Add-Member -MemberType NoteProperty -Name network_UNC_scriptpath -Value '';
-          $Global:config | Add-Member -MemberType NoteProperty -Name vcenter_Servers -Value '';
-           $global:config | Add-Member -MemberType NoteProperty -Name psdrive_name -Value '';
-            $global:config | Add-Member -MemberType NoteProperty -Name data_center -Value '';
-             $global:config | Add-Member -MemberType NoteProperty -Name datastore_array -Value '';
-              $global:config | Add-Member -MemberType NoteProperty -Name target_vcenter_server -Value '';
-               $global:config | Add-Member -MemberType NoteProperty -Name target_vcenter_server_creds -Value '';
-                $global:config | Add-Member -MemberType NoteProperty -Name psdrive_name_friendly_name -Value '';
-                 $global:config | Add-Member -MemberType NoteProperty -Name libs -Value '';
-                  $global:config | Add-Member -MemberType NoteProperty -Name esxi_upgrade_version -Value ''
-                   $global:config | Add-Member -MemberType NoteProperty -Name esxi_upgraded_version -Value '' 
-                    $global:config | Add-Member -MemberType NoteProperty -Name injectedServer -Value ''   }
-
+# ---------------------------------------------------------------\  
+$global:config = New-Object -TypeName psobject;
+$global:config | Add-Member -MemberType NoteProperty -Name running_mode -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name prepared_status -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name baseline_name -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name vmhost_cluster_name -Value ''; 
+$global:config | Add-Member -MemberType NoteProperty -Name module_cache -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name network_UNC_scriptpath -Value '';
+$Global:config | Add-Member -MemberType NoteProperty -Name vcenter_Servers -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name psdrive_name -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name data_center -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name datastore_array -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name target_vcenter_server -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name target_vcenter_server_creds -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name psdrive_name_friendly_name -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name libs -Value '';
+$global:config | Add-Member -MemberType NoteProperty -Name esxi_upgrade_version -Value ''
 # ---------------------------------------------------------------/ 
 ################################################################/
+
 ##################-RUNNING MODE-################################\
 # ---------------------------------------------------------\  
 $global:config.running_mode = 'live';
 $global:config.esxi_upgrade_version ='5.1.0'
 # ---------------------------------------------------------/ 
-#o---|- two Modes 'test' & 'live'
+##### two Modes 'test' & 'live'
 ################################################################/
+
+##################-PREPERATION STATUS-######################################\
+# ----------------------------------------------------------------------------\  
+$global:config.prepared_status = 'unprepared'; # < partially > < prepared > < unprepared >
+#### This property holds the settings for prepared status for a host/cluster
+#### a host/cluster cannot migrate or update if this status is not set to prepared
+#### The switch -prepareCluster & -prepareHost must be ran before 
+#### any migration of update occur.
+#### ----------------------
+#### SWITCHES THAT USE THIS
+#### ----------------------
+#### -updateCluster
+#### -updateHosts
+#### -updatehost
+# ----------------------------------------------------------------------------/
+############################################################################/
+
 ##################-Update Manager baseline Name-############################\
 # ----------------------------------------------------------------------------\  
 $global:config.baseline_name = 'Baseline esxi 5.1.0'; 
@@ -89,45 +91,57 @@ $global:config.baseline_name = 'Baseline esxi 5.1.0';
 ### once available you should be able to find the base line record name/groups
 # ----------------------------------------------------------------------------/ 
 ############################################################################/     
+
+
 ##################-cluster name to update-##########################\
 # -------------------------------------------------------------------\                                   
 $global:config.vmhost_cluster_name = 'dev-cluster-1';
 # -------------------------------------------------------------------/
 ####################################################################/
+
 ##################-Global Error action setting-##################################\
 # --------------------------------------------------------------------------------\ 
-$ErrorActionPreference = 'silentlycontinue';
+$ErrorActionPreference= 'silentlycontinue';
 # --------------------------------------------------------------------------------/
 ### GLOBAL Preference Silence errors for most functions, allowing the allocation
 ### of a error varilable -errorVariable $variablename
 #################################################################################/
+
 #***************************************************************************
 # - Path to which the script Caches the VMWare.PowerCLI Module for later use
 $global:config.module_cache = 'D:\vmware-powerhshell-offline-cache';
+
 #***************************************************************************
 # - The LOCAL/UNC path of the script file
-$global:config.network_UNC_scriptpath = '\\vprddfs01.calvarycare.local\NDC\Home\Garvey.Snow\projects\VMWare-PowerCLI-Manager';
+$global:config.network_UNC_scriptpath = '\\vprddfs01.calvarycare.local\NDC\Home\Garvey.Snow\VMWare-PowerCLI-Manager';
+
 #***************************************************************************
-$Global:config.vcenter_Servers = @('vprdvcn01.calvarycare.local'); # EXAMPLE : $vCenter_Servers = @('Server1',"Server2","Server3")
+$Global:config.vcenter_Servers = @('ndc-vcen-tm2.calvarycare.local'); # EXAMPLE : $vCenter_Servers = @('Server1',"Server2","Server3")
 # - List of vCenter's Not if more than one is provided
 #   The Script Will Attched to connect in LINKED mode
 #   vCenter Must be configured as a Child Node or maste
 #***************************************************************************
-$global:config.psdrive_name = 'vmwareclimanager';
+
+$global:config.psdrive_name = 'VMWARE-DS-MAN';
 $global:config.psdrive_name_friendly_name = $global:config.psdrive_name + ':\';
-$global:config.libs = $global:config.psdrive_name_friendly_name + 'libs'; 
-$global:libpath = $global:config.libs;
+$global:config.libs = $global:config.psdrive_name_friendly_name + 'libs'; $global:lib_path = $global:config.libs
+
 #***************************************************************************
 ######### TARGET vCenter Server ############
 $Global:config.target_vcenter_server = '';
 $Global:config.target_vcenter_server_creds = '';
-##################################################
+#######
+
 #######################################################
 # - if the datastore_array is empty [Get-datastore] will pull all vCenter wide
 # - if the datastore_datacenter string is left blank, script will pull all datastore containers vCenter Wide
 $global:config.datastore_array = @()
 $global:config.data_center = 'NDC'
 ######################################################
+
+
+#$global:config.creds = Get-Credential -Message 'Please enter account with sufficiant access.' -UserName 'calvarycare\'
+    
     
 # MAP Working folder
 # -----------------
@@ -148,33 +162,25 @@ else
 
 # DEPENDANCIES & LIB
 #-------------------
-<#
-    o---|-Description: Loops through the $global:config.network_UNC_scriptpath\libs
-#>
+Write-Host -ForegroundColor yellow '-------------------------------- Importing Dependancies --------------------------------'
 
-Write-host -ForegroundColor Cyan "Importing Critical Library Dependancy --(" -NoNewline; write-host -ForegroundColor Green ' write-segline.ps1'
-.$global:libpath"\mi\write-segline.ps1"
-Write-host -ForegroundColor Cyan "Importing Critical Library Dependancy --(" -NoNewline; write-host -ForegroundColor Green ' connectvi.ps1'
-.$global:libpath"\mi\connectvi.ps1"
+. $global:lib_path'\write-segline.ps1'
+WRITE-SEGLINE -action -firstline 'Importing' -secondline '\libs\write-segline.ps1' -numlines 2 -color yellow
 
-Write-Host -ForegroundColor yellow '---------------------------------------( Function Library Dependancies )------------------------------------'
+WRITE-SEGLINE -action -firstline 'Importing' -secondline '\libs\prepareCluster.ps1' -numlines 2 -color yellow
+. $global:lib_path'\prepareCluster.ps1'
 
-foreach($libs in Get-ChildItem -Path $global:config.libs )
-{
-    if($libs.PSIsContainer -eq $false)
-    {
-        $lib_name = $libs.Name
-        $libs_fullName = $libs.FullName
-        $f_libs_path = $global:config.psdrive_name_friendly_name + $libse
-<# 
-    Unable to add without with space for start of line
-#>
-.$global:libpath'\'$lib_name
-        WRITE-SEGLINE -action -firstline 'Importing Dependancy' -secondline $lib_name -numlines 3 -color yellow -thirdline "PATH:> $libs_fullName" 
-        Start-Sleep -Milliseconds 100
-    }
-}
+WRITE-SEGLINE -action -firstline 'Importing' -secondline '\libs\storageReport.ps1' -numlines 2 -color yellow
+. $global:lib_path'\storageReport.ps1'
 
+WRITE-SEGLINE -action -firstline 'Importing' -secondline '\libs\connectvi.ps1' -numlines 2 -color yellow
+. $global:lib_path'\connectvi.ps1'
+
+WRITE-SEGLINE -action -firstline 'Importing' -secondline '\libs\upgradeCluster.ps1' -numlines 2 -color yellow
+. $global:lib_path'\upgradeCluster.ps1'
+
+WRITE-SEGLINE -action -firstline 'Importing' -secondline '\libs\retrieveSuitableHost.ps1' -numlines 2 -color yellow
+. $global:lib_path'\retrieveSuitableHost.ps1'
 
 Write-Host -ForegroundColor yellow '-----------------------------------------------------------------------------------------'
 Write-Host ''
@@ -184,41 +190,35 @@ Write-Host -ForegroundColor cyan '-------------------------------------- Global 
 $global:config | FL *
 Write-Host -ForegroundColor cyan '-------------------------------------------------------------------------------------------'
 #==================================================================================================================================================
-#                                                                        FUNCTIONS
+#                                                           FUNCTIONS FROM LIBS
 #==================================================================================================================================================
 
 
 #*******************************************************#
 #-------------------------------------------------------#
-# o---|-connectVI                                       #
-#       Connect to a vCenter server instance            #
+#  CONNECTVI - Connect to a vCenter server instance     #
 #-------------------------------------------------------#
 #*******************************************************#
 if($connectVI -eq $true)
 {
-    if($injectServer -eq $null){ connectvi; }
-    else{ connectvi -server $injectServer }
-    
+    connectvi;
 }
 #*******************************************************#
 #-------------------------------------------------------#
-#  o---|-disconnectVI                                   #
-#        Kill a Server connection Instance              #
+#  disconnectVI - Kill a Server connection Instance     #
 #-------------------------------------------------------#
 #*******************************************************#
 if($disconnectVI -eq $true)
 {
     WRITE-SEGLINE -action -firstline 'Listing Connected vCenter Servers' -secondline 'VMware.PowerCLI Suspending script' -numlines 2 -color yellow 
-    
     Write-Host '--------------------'
     $global:defaultVIServers | FT  -AutoSize
     Write-Host '--------------------'
-    
     Disconnect-VIServer * -Confirm:$false -Verbose -ErrorAction SilentlyContinue
 }
 #*******************************************************#
 #-------------------------------------------------------#
-#  viewInstances - View Connect Server instance         #
+#  viewInstances - View Connect vServer instance        #
 #-------------------------------------------------------#
 #*******************************************************#
 if($viewInstances -eq $true)
@@ -239,7 +239,7 @@ if($prepareCluster -eq $true)
 
 #*******************************************************#
 #-------------------------------------------------------#
-#  findSuitableHost - Used in update host, allows
+#  retrieveSuitableHost - Used in update host, allows
 #                         the script to find the host in
 #                         the cluster with the most free 
 #                         memory and migrate vim's to it
@@ -249,36 +249,17 @@ if($prepareCluster -eq $true)
 #                         update.  
 #-------------------------------------------------------#
 #*******************************************************#
-if($findSuitableHost -eq $true)
+if($retrieveSuitableHost -eq $true)
 {
     # Located in */libs/
     retrieveSuitableHost;
 }
 
 
-#*******************************************************#
-#-------------------------------------------------------#
-#  Upgrade Cluster                                      #
-#-------------------------------------------------------#
-#*******************************************************#
-if($upgradeCluster -eq $true)
-{
-   # Located in */libs/upgradeCluster.ps1
-   upgradeCluster;
-}
-
-
-#*******************************************************#
-#-------------------------------------------------------#
-#  Rake Cluster Setting                                 #
-#-------------------------------------------------------#
-#*******************************************************#
-if($upgradeCluster -eq $true)
-{
-   # Located in */libs/upgradeCluster.ps1
-   rakeClustersettings;
-}
-
 } # END FUNCTION #
 
- 
+
+
+# Initialize Module on load
+vmarecli
+
